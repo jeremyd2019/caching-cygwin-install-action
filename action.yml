@@ -72,9 +72,7 @@ runs:
         $pkg_list = $pkg_list | % { $_.Trim(',') }
         $mystream = [IO.MemoryStream]::new([byte[]][char[]]$pkg_list)
         $pkgshash=(Get-FileHash -InputStream $mystream -Algorithm SHA1).Hash.Substring(0, 8)
-        $allowtestpackages=[bool]$Env:ALLOW_TEST_PACKAGES
-        echo "allow-test-packages=$allowtestpackages" >> "$Env:GITHUB_OUTPUT"
-        echo "cache-key=cygwin-packages-$allowtestpackages-$pkgshash-" >> "$Env:GITHUB_OUTPUT"
+        echo "cache-key=cygwin-packages-$Env:ALLOW_TEST_PACKAGES-$pkgshash-" >> "$Env:GITHUB_OUTPUT"
       env:
         WORK_VOL: ${{ inputs.work-vol }}
         ALLOW_TEST_PACKAGES: ${{ inputs.allow-test-packages }}
@@ -86,7 +84,7 @@ runs:
         key: ${{ steps.prepare.outputs.cache-key }}
         restore-keys: |
           ${{ steps.prepare.outputs.cache-key }}
-          cygwin-packages-${{ steps.prepare.outputs.allow-test-packages }}-
+          cygwin-packages-${{ inputs.allow-test-packages }}-
           cygwin-packages-
         path: cygwin-packages
     - run: IF EXIST cygwin-packages move /Y cygwin-packages "${{ steps.prepare.outputs.vol }}\"
@@ -101,7 +99,7 @@ runs:
         pubkeys: ${{ inputs.pubkeys }}
         site: ${{ inputs.site }}
         add-to-path: ${{ inputs.add-to-path }}
-        allow-test-packages: ${{ steps.prepare.outputs.allow-test-packages }}
+        allow-test-packages: ${{ inputs.allow-test-packages }}
         check-hash: ${{ inputs.check-hash }}
         check-installer-sig: ${{ inputs.check-installer-sig }}
         work-vol: ${{ steps.prepare.outputs.vol }}
