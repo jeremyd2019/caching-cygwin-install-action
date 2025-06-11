@@ -116,7 +116,7 @@ runs:
         key: ${{ format('{0}{1}', steps.prepare.outputs.cache-key, hashFiles('cygwin-packages/**', '!cygwin-packages/**/setup.ini')) }}
         path: cygwin-packages
     - name: post cache
-      run: move /Y cygwin-packages "${{ steps.cygwin.outputs.package-cache }}"
+      run: move /Y cygwin-packages "${{ steps.cygwin-install-action.outputs.package-cache }}"
       shell: cmd
 
 branding:
