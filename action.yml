@@ -105,8 +105,8 @@ runs:
         work-vol: ${{ steps.prepare.outputs.vol }}
     - name: move package cache
       run: |
-        if (Test-Path `${{ steps.cygwin-install-action.outputs.package-cache }}\file`* ) {
-          rm -r -fo `${{ steps.cygwin-install-action.outputs.package-cache }}\file`*
+        if (Test-Path "${{ steps.cygwin-install-action.outputs.package-cache }}\file*" ) {
+          rm -r -fo "${{ steps.cygwin-install-action.outputs.package-cache }}\file*"
         }
         move "${{ steps.cygwin-install-action.outputs.package-cache }}" .
       shell: pwsh
