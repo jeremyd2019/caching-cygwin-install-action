@@ -1,0 +1,126 @@
+name: Install Cygwin Action with Caching
+description: GitHub Action to install Cygwin, caching downloaded packages
+
+inputs:
+  platform:
+    description: Platform [x86, x86_64]
+    required: false
+    default: x86_64
+  packages:
+    description: Packages to install
+    required: false
+  install-dir:
+    # For consistency and simplicity, install to <work-dir>:\cygwin rather
+    # than to the platform dependent default (e.g. <work-dir>:\cygwin64)
+    description: Installation directory (overrides work-vol)
+    required: false
+    default: ''
+  check-sig:
+    description: Should the setup.ini file signature be checked?
+    required: false
+    default: 'true'
+  pubkeys:
+    description: Absolute paths of extra public key files (RFC4880 format), separated by whitespace
+    required: false
+  site:
+    description: Download site URLs separated by whitespace
+    required: false
+  add-to-path:
+    description: Should Cygwin's bin directory be added to the system PATH?
+    required: false
+    default: 'true'
+  allow-test-packages:
+    description: Consider package versions marked test
+    required: false
+    default: 'false'
+  check-hash:
+    description: Check the hash of the installer
+    required: false
+    default: 'true'
+  check-installer-sig:
+    description: Check the Autheticode signature of the installer
+    required: false
+    default: 'true'
+  work-vol:
+    description: Volume on which to store setup and packages, and install Cygwin
+    required: false
+    default: ''
+
+outputs:
+  setup:
+    description: Pathname of the Cygwin setup executable
+    value: ${{ steps.cygwin-install-action.outputs.setup }}
+  root:
+    description: Root directory of Cygwin installation (equal to install-dir input)
+    value: ${{ steps.cygwin-install-action.outputs.root }}
+  package-cache:
+    description: Package cache directory
+    value: ${{ steps.cygwin-install-action.outputs.package-cache }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: prepare
+      run: |
+        if ($Env:WORK_VOL) {
+          echo "vol=$Env:WORK_VOL" >> "$Env:GITHUB_OUTPUT"
+        } else {
+          echo "vol=$(Split-Path $Env:GITHUB_WORKSPACE -Qualifier)" >> "$Env:GITHUB_OUTPUT"
+        }
+        $pkg_list = $Env:PACKAGES.Split('', [System.StringSplitOptions]::RemoveEmptyEntries)
+        $pkg_list = $pkg_list | % { $_.Trim() }
+        $pkg_list = $pkg_list | % { $_.Trim(',') }
+        $mystream = [IO.MemoryStream]::new([byte[]][char[]]$pkg_list)
+        $pkgshash=(Get-FileHash -InputStream $mystream -Algorithm SHA1).Hash.Substring(0, 8)
+        $allowtestpackages=[bool]$Env:ALLOW_TEST_PACKAGES
+        echo "allow-test-packages=$allowtestpackages" >> "$Env:GITHUB_OUTPUT"
+        echo "cache-key=cygwin-packages-$allowtestpackages-$pkgshash-" >> "$Env:GITHUB_OUTPUT"
+      env:
+        WORK_VOL: ${{ inputs.work-vol }}
+        ALLOW_TEST_PACKAGES: ${{ inputs.allow-test-packages }}
+        PACKAGES: ${{ inputs.packages }}
+      shell: pwsh
+    - id: cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        key: ${{ steps.prepare.outputs.cache-key }}
+        restore-keys: |
+          ${{ steps.prepare.outputs.cache-key }}
+          cygwin-packages-${{ steps.prepare.outputs.allow-test-packages }}-
+          cygwin-packages-
+        path: cygwin-packages
+    - run: IF EXIST cygwin-packages move /Y cygwin-packages "${{ steps.prepare.outputs.vol }}\"
+      shell: cmd
+    - id: cygwin-install-action
+      uses: cygwin/cygwin-install-action@master
+      with:
+        platform: ${{ inputs.platform }}
+        packages: ${{ inputs.packages }}
+        install-dir: ${{ inputs.install-dir }}
+        check-sig: ${{ inputs.check-sig }}
+        pubkeys: ${{ inputs.pubkeys }}
+        site: ${{ inputs.site }}
+        add-to-path: ${{ inputs.add-to-path }}
+        allow-test-packages: ${{ steps.prepare.outputs.allow-test-packages }}
+        check-hash: ${{ inputs.check-hash }}
+        check-installer-sig: ${{ inputs.check-installer-sig }}
+        work-vol: ${{ steps.prepare.outputs.vol }}
+    - name: move package cache
+      run: |
+        if (Test-Path `${{ steps.cygwin-install-action.outputs.package-cache }}\file`* ) {
+          rm -r -fo `${{ steps.cygwin-install-action.outputs.package-cache }}\file`*
+        }
+        move "${{ steps.cygwin-install-action.outputs.package-cache }}" .
+      shell: pwsh
+    - uses: actions/cache/save@v4
+      if: ${{ steps.cache-restore.outputs.cache-matched-key != format('{0}{1}', steps.prepare.outputs.cache-key, hashFiles('cygwin-packages/**', '!cygwin-packages/**/setup.ini')) }}
+      with:
+        key: ${{ format('{0}{1}', steps.prepare.outputs.cache-key, hashFiles('cygwin-packages/**', '!cygwin-packages/**/setup.ini')) }}
+        path: cygwin-packages
+    - name: post cache
+      run: move /Y cygwin-packages "${{ steps.cygwin.outputs.package-cache }}"
+      shell: cmd
+
+branding:
+  color: green
+  icon: terminal
