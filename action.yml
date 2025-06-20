@@ -109,6 +109,9 @@ runs:
         set -o igncr # comment to eat potential CR
         CYGWIN_ROOT="$(cygpath -u "${CYGWIN_ROOT}")"
         PACKAGE_CACHE="$(cygpath -u "${PACKAGE_CACHE}")"
+        if [[ "${CYGWIN_ROOT}" == "/" ]]; then
+          CYGWIN_ROOT=""
+        fi
         rm -rf "${PACKAGE_CACHE}/file"*
         awk '$3 == "Extracting" && $4 == "from" { sub(/^file:\/\//, "", $5); gsub(/\//, "\\", $5); print $5 }' "${CYGWIN_ROOT}/var/log/setup.log" | cygpath -uf - | comm --nocheck-order -13 - <(find "${PACKAGE_CACHE}" -type f ! -name setup.ini) | xargs -d '\n' rm -vf
         mv "${PACKAGE_CACHE}" .
