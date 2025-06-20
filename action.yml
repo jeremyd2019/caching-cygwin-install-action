@@ -113,7 +113,7 @@ runs:
           CYGWIN_ROOT=""
         fi
         rm -rf "${PACKAGE_CACHE}/file"*
-        awk '$3 == "Extracting" && $4 == "from" { sub(/^file:\/\//, "", $5); gsub(/\//, "\\", $5); print $5 }' "${CYGWIN_ROOT}/var/log/setup.log" | cygpath -uf - | sort |
+        awk '$3 == "Extracting" && $4 == "from" { sub(/^file:\/\//, "", $5); print $5 }' "${CYGWIN_ROOT}/var/log/setup.log" | cygpath -uf - | sort |
           comm -13 - <(find "${PACKAGE_CACHE}" -type f ! -name setup.ini | sort) | xargs -d '\n' rm -vf
         mv "${PACKAGE_CACHE}" .
       shell: bash
